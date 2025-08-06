@@ -16,7 +16,6 @@ image_transforms = transforms.Compose([
 ])
 
 @st.cache_resource
-
 def load_models():
     model = EffNetB3_SSA(num_classes=2)
     model.load_state_dict(torch.load("models/model.pth", map_location=device), strict=False)
@@ -29,59 +28,162 @@ def load_models():
 model, risk_model = load_models()
 classes = ["abnormal", "normal"]
 
+if 'current_question' not in st.session_state:
+    st.session_state.current_question = 1
+if 'headache' not in st.session_state:
+    st.session_state.headache = 0
+if 'blurred' not in st.session_state:
+    st.session_state.blurred = "No"
+if 'convulsion' not in st.session_state:
+    st.session_state.convulsion = 0
+if 'swelling' not in st.session_state:
+    st.session_state.swelling = "None"
+if 'show_results' not in st.session_state:
+    st.session_state.show_results = False
+
 st.title("Fetal Brain Abnormality Scanner")
+
+total_questions = 4
+if not st.session_state.show_results:
+    progress = (st.session_state.current_question - 1) / total_questions
+    st.progress(progress, text=f"Question {st.session_state.current_question} of {total_questions}")
+
 st.markdown("---")
 
-st.subheader("Early Detection - Risk Assessment")
-st.markdown("*Based on maternal symptoms and vital signs*")
+if not st.session_state.show_results:
+    if st.session_state.current_question == 1:
+        st.subheader("Question 1: Headache Severity")
+        st.markdown("Rate your headache severity on a scale from 0 to 10")
+        st.markdown("0 = No headache, 10 = Worst possible headache")
+        
+        headache = st.slider("Headache severity", 0, 10, st.session_state.headache, key="headache_slider")
+        
+        if st.button("Next", type="primary", use_container_width=True):
+            st.session_state.headache = headache
+            st.session_state.current_question = 2
+            st.rerun()
+    
+    elif st.session_state.current_question == 2:
+        st.subheader("Question 2: Blurred Vision")
+        st.markdown("Are you experiencing blurred or impaired vision?")
+        
+        blurred = st.radio("Blurred Vision", ["No", "Yes"], 
+                          index=0 if st.session_state.blurred == "No" else 1,
+                          key="blurred_radio")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Previous", use_container_width=True):
+                st.session_state.current_question = 1
+                st.rerun()
+        with col2:
+            if st.button("Next", type="primary", use_container_width=True):
+                st.session_state.blurred = blurred
+                st.session_state.current_question = 3
+                st.rerun()
+    
+    elif st.session_state.current_question == 3:
+        st.subheader("Question 3: Seizures")
+        st.markdown("How many seizures have you experienced in the last 24 hours?")
+        
+        convulsion = st.selectbox("Number of seizures", [0, 1, 2, 3, ">3"],
+                                 index=[0, 1, 2, 3, ">3"].index(st.session_state.convulsion),
+                                 key="convulsion_select")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Previous", use_container_width=True):
+                st.session_state.current_question = 2
+                st.rerun()
+        with col2:
+            if st.button("Next", type="primary", use_container_width=True):
+                st.session_state.convulsion = convulsion
+                st.session_state.current_question = 4
+                st.rerun()
+    
+    elif st.session_state.current_question == 4:
+        st.subheader("Question 4: Swelling")
+        st.markdown("What is the extent of swelling in your hands, face, or feet?")
+        
+        swelling = st.radio("Swelling extent", ["None", "Mild", "Moderate", "Severe"],
+                           index=["None", "Mild", "Moderate", "Severe"].index(st.session_state.swelling),
+                           key="swelling_radio")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Previous", use_container_width=True):
+                st.session_state.current_question = 3
+                st.rerun()
+        with col2:
+            if st.button("Get Results", type="primary", use_container_width=True):
+                st.session_state.swelling = swelling
+                st.session_state.show_results = True
+                st.rerun()
 
-col1, col2 = st.columns(2)
-
-with col1:
-    headache = st.slider("Headache severity (0=none, 10=worst)", 0, 10, 0)
-    blurred = st.radio("Blurred Vision", ["No", "Yes"])
-
-with col2:
-    convulsion = st.selectbox("Number of seizures in the last 24h", [0, 1, 2, 3, ">3"])
-    swelling = st.radio("Swelling extent", ["None", "Mild", "Moderate", "Severe"])
-
-if st.button("Assess Risk", type="primary"):
+else:
+    st.subheader("Risk Assessment Results")
+    
     conv_map = {0: 0, 1: 3, 2: 6, 3: 8, ">3": 10}
     swell_map = {"None": 0, "Mild": 3, "Moderate": 6, "Severe": 9}
-    blurred_val = 7 if blurred == "Yes" else 0
+    blurred_val = 7 if st.session_state.blurred == "Yes" else 0
     
     input_data = pd.DataFrame([{
-        "Headache": headache,
+        "Headache": st.session_state.headache,
         "BlurredVision": blurred_val,
-        "Convulsions": conv_map[convulsion],
-        "Swelling": swell_map[swelling]
+        "Convulsions": conv_map[st.session_state.convulsion],
+        "Swelling": swell_map[st.session_state.swelling]
     }])
     
-    total_score = headache + blurred_val + conv_map[convulsion] + swell_map[swelling]
+    total_score = (st.session_state.headache + blurred_val + 
+                  conv_map[st.session_state.convulsion] + swell_map[st.session_state.swelling])
     
     try:
         prediction = risk_model.predict(input_data)[0]
         
-        st.markdown("### Risk Assessment Results")
-        st.write(f"**Total Risk Score:** {total_score}")
+        st.markdown("### Your Assessment Summary:")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"**Headache:** {st.session_state.headache}/10")
+            st.write(f"**Blurred Vision:** {st.session_state.blurred}")
+        with col2:
+            st.write(f"**Seizures (24h):** {st.session_state.convulsion}")
+            st.write(f"**Swelling:** {st.session_state.swelling}")
+        
+        st.markdown(f"**Total Risk Score:** {total_score}")
         
         if prediction == "High":
-            st.error("**HIGH RISK** for fetal brain abnormalities")
+            st.error("HIGH RISK for fetal brain abnormalities")
             st.markdown("**Recommendation:** Seek immediate medical attention and specialized monitoring.")
         elif prediction == "Medium":
-            st.warning("**MEDIUM RISK** for fetal brain abnormalities")
+            st.warning("MEDIUM RISK for fetal brain abnormalities")
             st.markdown("**Recommendation:** Schedule additional prenatal checkups and monitoring.")
         else:
-            st.success("**LOW RISK** for fetal brain abnormalities")
+            st.success("LOW RISK for fetal brain abnormalities")
             st.markdown("**Recommendation:** Continue regular prenatal care.")
             
     except Exception as e:
         st.error(f"Error in risk assessment: {str(e)}")
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("Review Answers", use_container_width=True):
+            st.session_state.current_question = 4
+            st.session_state.show_results = False
+            st.rerun()
+    with col2:
+        if st.button("Start New Assessment", use_container_width=True, type="primary"):
+            st.session_state.current_question = 1
+            st.session_state.headache = 0
+            st.session_state.blurred = "No"
+            st.session_state.convulsion = 0
+            st.session_state.swelling = "None"
+            st.session_state.show_results = False
+            st.rerun()
 
 st.markdown("---")
 
-st.subheader("Late Detection - Ultrasound Image Analysis")
-st.markdown("*Upload an ultrasound image for automated analysis*")
+st.subheader("Ultrasound Image Analysis")
+st.markdown("Upload an ultrasound image for automated analysis")
 
 uploaded_file = st.file_uploader(
     "Choose an ultrasound image...", 
@@ -119,10 +221,10 @@ if uploaded_file is not None:
                 confidence_score = confidence.item() * 100
                 
                 if predicted_class == "abnormal":
-                    st.error(f"**ABNORMALITY** detected")
+                    st.error(f"ABNORMALITY detected")
                     st.error(f"Confidence: {confidence_score:.1f}%")
                 else:
-                    st.success(f"✅ **NORMAL**")
+                    st.success(f"NORMAL")
                     st.success(f"Confidence: {confidence_score:.1f}%")
                 
                 st.markdown("#### Probability Breakdown:")
