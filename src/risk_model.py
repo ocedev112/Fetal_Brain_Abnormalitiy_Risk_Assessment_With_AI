@@ -41,10 +41,10 @@ if len(df_med) > 0:
     balanced_dfs.append(df_med_up)
 
 df_balanced = pd.concat(balanced_dfs)
-df_balanced["Headache"] =  (df_balanced["SystolicBP"] > 140).astype(int)*5
+df_balanced["Headache"] =  (df_balanced["SystolicBP"] > 120).astype(int)*5
 df_balanced["BlurredVision"] = (df_balanced["DiastolicBP"] > 90).astype(int)*7
-df_balanced["Convulsions"] = (df_balanced["BS"] > 120).astype(int)*10
-df_balanced["Swelling"] = (df_balanced["BodyTemp"] > 38).astype(int)*6
+df_balanced["Convulsions"] = (df_balanced["BS"] > 100).astype(int)*10
+df_balanced["Swelling"] = (df_balanced["BodyTemp"] > 37).astype(int)*6
 
 df_balanced["BrainRisk"] = df_balanced.apply(brain_risk, axis = 1)
 
