@@ -15,7 +15,7 @@ image_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 
-@st.cache_resource
+
 def load_models():
     model = EffNetB3_SSA(num_classes=2)
     model.load_state_dict(torch.load("models/model.pth", map_location=device), strict=False)
