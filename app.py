@@ -15,6 +15,7 @@ image_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 
+@st.cache_resource
 
 def load_models():
     model = EffNetB3_SSA(num_classes=2)
