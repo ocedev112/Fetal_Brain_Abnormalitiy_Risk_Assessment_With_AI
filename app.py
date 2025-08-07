@@ -64,10 +64,10 @@ if st.button("Assess Risk", type="primary"):
         st.markdown("### Risk Assessment Results")
         st.write(f"**Total Risk Score:** {total_score}")
         
-        if total_score >=15:
+        if prediction == "High":
             st.error("**HIGH RISK** for fetal brain abnormalities")
             st.markdown("**Recommendation:** Seek immediate medical attention and specialized monitoring.")
-        elif total_score >= 7:
+        elif prediction == "Medium":
             st.warning("**MEDIUM RISK** for fetal brain abnormalities")
             st.markdown("**Recommendation:** Schedule additional prenatal checkups and monitoring.")
         else:
