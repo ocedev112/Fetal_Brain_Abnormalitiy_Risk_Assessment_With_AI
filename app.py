@@ -8,6 +8,7 @@ from src.effnet_ssa import EffNetB3_SSA
 import torch.nn.functional as F
 import joblib
 import numpy as np
+from src.fu_model_wrapper import FU_model_wrapper
 
 device = torch.device("cpu")
 
@@ -23,10 +24,11 @@ def load_models():
     model.eval()
     
     risk_model = joblib.load("models/brain_risk_model.pkl")
+    fu_model = FU_model_wrapper("models/fu_model.pth", device)
     
-    return model, risk_model
+    return model, risk_model, fu_model
 
-model, risk_model = load_models()
+model, risk_model, fu_model = load_models()
 classes = ["abnormal", "normal"]
 if 'current_question' not in st.session_state:
     st.session_state.current_question = 1
@@ -54,7 +56,7 @@ if 'show_results' not in st.session_state:
     st.session_state.show_results = False
 
 st.title("Fetal Brain Abnormality Risk Assessment")
-st.markdown("*Advanced AI-powered screening tool for healthcare professionals*")
+st.markdown("*AI-powered screening tool for healthcare professionals*")
 
 total_questions = 10
 if not st.session_state.show_results:
@@ -289,7 +291,7 @@ if not st.session_state.show_results:
                 st.rerun()
 
 else:
-    st.subheader("🎯 Comprehensive Risk Assessment Results")
+    st.subheader("Comprehensive Risk Assessment Results")
     
     
     input_data = pd.DataFrame([{
@@ -436,39 +438,53 @@ if uploaded_file is not None:
             st.image(image, caption="Uploaded Ultrasound Image", use_column_width=True)
         
         with col2:
-            with st.spinner('Analyzing image...'):
-                img_tensor = image_transforms(image).unsqueeze(0)
+            with st.spinner('Validating image type...'):
+                fu_result = fu_model.validate_image(image)
                 
-                with torch.no_grad():
-                    output = model(img_tensor)
-                    probabilities = F.softmax(output, dim=1)
-                    confidence, prediction_idx = torch.max(probabilities, 1)
-                    
-                    abnormal_prob = probabilities[0][0].item() * 100
-                    normal_prob = probabilities[0][1].item() * 100
-                
-                st.markdown("### Analysis Results")
-                
-                predicted_class = classes[prediction_idx.item()]
-                confidence_score = confidence.item() * 100
-                
-                if predicted_class == "abnormal":
-                    st.error(f"**ABNORMALITY DETECTED**")
-                    st.error(f"Confidence: {confidence_score:.1f}%")
+                if 'error' in fu_result:
+                    st.error(f"Error processing image: {fu_result['error']}")
+                elif not fu_result['is_brain']:
+                    st.error(f"**IMAGE REJECTED**")
+                    st.error(f"Detected: {fu_result['predicted_class'].title()} (Confidence: {fu_result['confidence']*100:.1f}%)")
+                    st.markdown("**This appears to be a {} ultrasound image, not a brain ultrasound.**".format(fu_result['predicted_class']))
+                    st.info("Please upload a brain ultrasound image for analysis.")
                 else:
-                    st.success(f"**NORMAL APPEARANCE**")
-                    st.success(f"Confidence: {confidence_score:.1f}%")
-                
-                st.markdown("#### Probability Breakdown:")
-                st.write(f"• **Abnormal:** {abnormal_prob:.1f}%")
-                st.write(f"• **Normal:** {normal_prob:.1f}%")
-                
-                st.markdown("#### Visual Probability:")
-                st.progress(abnormal_prob/100, text=f"Abnormal: {abnormal_prob:.1f}%")
-                st.progress(normal_prob/100, text=f"Normal: {normal_prob:.1f}%")
-                
-                if predicted_class == "abnormal" or abnormal_prob > 50:
-                    st.warning("⚠️ **Medical Disclaimer:** This is a preliminary analysis. Please consult with a qualified medical professional for proper diagnosis and treatment.")
+                    st.success(f"**BRAIN IMAGE CONFIRMED**")
+                    st.success(f"Confidence: {fu_result['confidence']*100:.1f}%")
+                    
+                    with st.spinner('Analyzing brain image...'):
+                        img_tensor = image_transforms(image).unsqueeze(0)
+                        
+                        with torch.no_grad():
+                            output = model(img_tensor)
+                            probabilities = F.softmax(output, dim=1)
+                            confidence, prediction_idx = torch.max(probabilities, 1)
+                            
+                            abnormal_prob = probabilities[0][0].item() * 100
+                            normal_prob = probabilities[0][1].item() * 100
+                        
+                        st.markdown("### Analysis Results")
+                        
+                        predicted_class = classes[prediction_idx.item()]
+                        confidence_score = confidence.item() * 100
+                        
+                        if predicted_class == "abnormal":
+                            st.error(f"**ABNORMALITY DETECTED**")
+                            st.error(f"Confidence: {confidence_score:.1f}%")
+                        else:
+                            st.success(f"**NORMAL APPEARANCE**")
+                            st.success(f"Confidence: {confidence_score:.1f}%")
+                        
+                        st.markdown("#### Probability Breakdown:")
+                        st.write(f"• **Abnormal:** {abnormal_prob:.1f}%")
+                        st.write(f"• **Normal:** {normal_prob:.1f}%")
+                        
+                        st.markdown("#### Visual Probability:")
+                        st.progress(abnormal_prob/100, text=f"Abnormal: {abnormal_prob:.1f}%")
+                        st.progress(normal_prob/100, text=f"Normal: {normal_prob:.1f}%")
+                        
+                        if predicted_class == "abnormal" or abnormal_prob > 50:
+                            st.warning("Medical Disclaimer: This is a preliminary analysis. Please consult with a qualified medical professional for proper diagnosis and treatment.")
     
     except Exception as e:
         st.error(f"Error processing image: {str(e)}")
