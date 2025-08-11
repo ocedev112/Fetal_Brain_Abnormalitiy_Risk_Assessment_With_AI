@@ -35,3 +35,4 @@ class EffNetB3_SSA(nn.Module):
         x = self.attn(x)
         x = self.pool(x)
         return self.mlp(x)
+

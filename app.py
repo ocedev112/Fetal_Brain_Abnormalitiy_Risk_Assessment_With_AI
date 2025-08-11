@@ -251,7 +251,7 @@ if not st.session_state.show_results:
         
         folic_acid_taken = st.radio(
             "Folic acid supplementation",
-            ["Yes, taking regularly", "No, not taking"],
+            ["Yes, taking regularly", "No, not taking", "No, but not needed"],
             index=1 if st.session_state.no_folic_acid else 0,
             key="folic_radio"
         )
@@ -435,7 +435,7 @@ if uploaded_file is not None:
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.image(image, caption="Uploaded Ultrasound Image", use_column_width=True)
+            st.image(image, caption="Uploaded Ultrasound Image", use_container_width=True)
         
         with col2:
             with st.spinner('Validating image type...'):
