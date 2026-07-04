@@ -3,5 +3,5 @@ An AI-based solution designed to help patients assess risk and assist front-desk
 Built using EfficientNet (EffNet) for image classification and Random Forest for symptom-based detection.
 
 ## Features
-- **Risk and symptom-based detection** — patients or workers input symptoms, and a Random Forest model estimates risk level
-- **Ultrasound scan-based detection** — ultrasound images are classified using an EfficientNet model to flag potential abnormalities
+- **Risk and symptom-based detection** — patients or workers input symptoms, and a Random Forest model estimates risk level.
+- **Ultrasound scan-based detection** — ultrasound images are classified using an EfficientNet model to flag potential abnormalities.
